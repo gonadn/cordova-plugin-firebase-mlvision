@@ -13,7 +13,7 @@ import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetector;
 import com.google.firebase.ml.vision.common.FirebaseVisionImage;
 import com.google.firebase.ml.vision.text.FirebaseVisionText;
 import com.google.firebase.ml.vision.text.FirebaseVisionTextRecognizer;
-
+import com.google.firebase.ml.vision.text.FirebaseVisionCloudTextRecognizerOptions;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.json.JSONArray;
@@ -21,6 +21,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.List;
+import java.util.Arrays;
 
 import androidx.annotation.NonNull;
 
@@ -53,7 +54,13 @@ public class FirebaseVisionPlugin extends CordovaPlugin {
             String message = args.getString(0);
             this.onDeviceTextRecognizer(message, callbackContext);
             return true;
-        } else if (action.equals("barcodeDetector")) {
+        } 
+        else if (action.equals("cloudTextRecognizer")) {
+            String message = args.getString(0);
+            this.cloudTextRecognizer(message, callbackContext);
+            return true;
+        }
+        else if (action.equals("barcodeDetector")) {
             String message = args.getString(0);
             this.barcodeDetector(message, callbackContext);
             return true;
@@ -67,6 +74,7 @@ public class FirebaseVisionPlugin extends CordovaPlugin {
                 Uri uri = Uri.parse(message);
                 FirebaseVisionImage image = FirebaseVisionImage.fromFilePath(applicationContext, uri);
                 FirebaseVisionTextRecognizer recognizer = firebaseVision.getOnDeviceTextRecognizer();
+          
                 recognizer.processImage(image)
                         .addOnSuccessListener(new OnSuccessListener<FirebaseVisionText>() {
                             @Override
@@ -92,6 +100,45 @@ public class FirebaseVisionPlugin extends CordovaPlugin {
             callbackContext.error("Expected one non-empty string argument.");
         }
     }
+
+    private void cloudTextRecognizer(String message, CallbackContext callbackContext) {
+        if (message != null && message.length() > 0) {
+            try {
+                Uri uri = Uri.parse(message);
+                FirebaseVisionImage image = FirebaseVisionImage.fromFilePath(applicationContext, uri);
+                FirebaseVisionCloudTextRecognizerOptions options =
+                (new FirebaseVisionCloudTextRecognizerOptions.Builder())
+                        .setLanguageHints(Arrays.asList("en"))
+                        .build();
+
+                FirebaseVisionTextRecognizer recognizer = firebaseVision.getCloudTextRecognizer(options);
+                
+                recognizer.processImage(image)
+                        .addOnSuccessListener(new OnSuccessListener<FirebaseVisionText>() {
+                            @Override
+                            public void onSuccess(FirebaseVisionText firebaseVisionText) {
+                                try {
+                                    JSONObject text = FirebaseUtils.parseText(firebaseVisionText);
+                                    callbackContext.success(text);
+                                } catch (Exception e) {
+                                    callbackContext.error(e.getLocalizedMessage());
+                                }
+                            }
+                        })
+                        .addOnFailureListener(new OnFailureListener() {
+                            @Override
+                            public void onFailure(@NonNull Exception e) {
+                                callbackContext.error(e.getLocalizedMessage());
+                            }
+                        });
+            } catch (Exception e) {
+                callbackContext.error(e.getLocalizedMessage());
+            }
+        } else {
+            callbackContext.error("Expected one non-empty string argument.");
+        }
+    }
+
 
     private void barcodeDetector(String message, CallbackContext callbackContext) {
         if (message != null && message.length() > 0) {
